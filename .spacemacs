@@ -32,7 +32,7 @@ This function should only modify configuration layer settings."
 
    ;; List of configuration layers to load.
    dotspacemacs-configuration-layers
-   '(
+   '(csv
      ;; ----------------------------------------------------------------
      ;; Example of useful layers you may want to use right away.
      ;; Uncomment some layer names and press `SPC f e R' (Vim style) or
@@ -46,35 +46,48 @@ This function should only modify configuration layer settings."
      ;; lsp
      ;; markdown
      multiple-cursors
-     (org
-      :variables
-      org-directory (expand-file-name "~/Documents/org")
-          org-default-notes-file (concat org-directory "/inbox.org")
-     ;; org-roam
-     org-enable-roam-support t
-      org-roam-directory (concat org-directory "/roam")
-      org-roam-db-location (concat org-roam-directory "/db/org-roam.db")
-      org-roam-capture-templates
-      '(("d" "default" plain
-         #'org-roam-capture--get-point "%?"
-         :file-name "%<%Y%m%d%H%M%S>-${slug}"
-         :head "#+title: ${title}\n#+roam_tags:\n"
-         :unnarrowed t))
-         org-roam-dailies-capture-templates
-	       '(("d" "default" entry
-		            #'org-roam-capture--get-point "* %?"
-		            :file-name "daily/%<%Y-%m-%d>"
-		            :head "#+title: %<%Y-%m-%d (%A)>\n\n* tasks for today [/]\n  - [ ]\n* journal\n"
-                :olp ("journal"))))
-
      ;; (shell :variables
      ;;        shell-default-height 30
      ;;        shell-default-position 'bottom)
      ;; spell-checking
      ;; syntax-checking
      ;; version-control
+     latex
+     (bibtex
+      :variables
+      bibtex-completion-bibliography (expand-file-name "~/sinfony_lightning_objects/sinfony.bib")
+      bibtex-completion-pdf-field "file"
+      ;; org-ref stuff used by bibtex layer
+      org-ref-insert-cite-key "C-c )"
+      org-ref-bibliography-notes "~/Dropbox/zettelkasten/reference_notes.org"
+      org-ref-default-bibliography (list bibtex-completion-bibliography)
+      org-ref-get-pdf-filename-function 'org-ref-get-pdf-filename-helm-bibtex)
+     (org
+      :variables
+      org-directory (expand-file-name "~/Dropbox/zettelkasten/")
+	    org-default-notes-file (concat org-directory "/inbox.org")
+      ;; org-roam
+      org-enable-roam-support t
+   	  org-roam-directory (expand-file-name "~/Dropbox/zettelkasten/")
+      org-roam-db-location (concat org-roam-directory "/db/org-roam.db")
+      ;; org-roam-db-update-method immediate
+      ;;org-roam-completion-system (ivy)
+      org-roam-capture-templates
+      '(("d" "default" plain
+         #'org-roam-capture--get-point "%?"
+         :file-name "%<%Y%m%d%H%M%S>-${slug}"
+         :head "#+title: ${title}\n#+roam_tags:\n"
+         :unnarrowed t))
+      org-roam-dailies-capture-templates
+      '(("d" "default" entry
+      #'org-roam-capture--get-point "* %?"
+      :file-name "daily/%<%Y-%m-%d>"
+      :head "#+title: %<%Y-%m-%d (%A)>\n\n* tasks for today [/]\n  - [ ]\n* journal\n"
+         :olp ("journal"))))
+     graphviz
+     html
+         (ivy :variables ivy-enable-advanced-buffer-information)
      treemacs)
-
 
    ;; List of additional packages that will be installed without being wrapped
    ;; in a layer (generally the packages are installed only and should still be
@@ -84,7 +97,13 @@ This function should only modify configuration layer settings."
    ;; `dotspacemacs/user-config'. To use a local version of a package, use the
    ;; `:location' property: '(your-package :location "~/path/to/your-package/")
    ;; Also include the dependencies as they will not be resolved automatically.
-   dotspacemacs-additional-packages '()
+   dotspacemacs-additional-packages
+   '(
+     org-roam-bibtex
+     org-noter
+     org-noter-pdftools
+     org-roam-server
+     )
 
    ;; A list of packages that cannot be updated.
    dotspacemacs-frozen-packages '()
@@ -235,7 +254,8 @@ It should only modify the values of Spacemacs settings."
    ;; List of themes, the first of the list is loaded when spacemacs starts.
    ;; Press `SPC T n' to cycle to the next theme in the list (works great
    ;; with 2 themes variants, one dark and one light)
-   dotspacemacs-themes '(spacemacs-dark
+   dotspacemacs-themes '(dracula
+                         spacemacs-dark
                          spacemacs-light)
 
    ;; Set the theme for the Spaceline. Supported themes are `spacemacs',
@@ -255,7 +275,7 @@ It should only modify the values of Spacemacs settings."
    ;; a non-negative integer (pixel size), or a floating-point (point size).
    ;; Point size is recommended, because it's device independent. (default 10.0)
    dotspacemacs-default-font '("Source Code Pro"
-                               :size 10.0
+                               :size 18.0
                                :weight normal
                                :width normal)
 
@@ -541,7 +561,132 @@ This function is called at the very end of Spacemacs startup, after layer
 configuration.
 Put your configuration code here, except for variables that should be set
 before packages are loaded."
-  )
+    ;; set org-todo states
+    (with-eval-after-load 'org
+      (setq org-todo-keywords
+          '((sequence "FUTURE/MAYBE" "TODO" "DOING" "WAITING" "REVIEW" "|" "DONE" "ARCHIVED")))
+      ; the following us supposed to makedone agenda items crossed out,
+      ; but but it doesn't work
+     ; (set-face-attribute 'org-headline-done nil :strike-through t)
+    )
+    (add-to-load-path (expand-file-name "~/dotfiles/"))
+    (require 'lisa_utils)
+    ;; set colors of todo states
+    (setq org-todo-keyword-faces
+         '(("todo" . "SlateGray")
+           ("doing" . "DarkOrchid")
+           ("blocked" . "Firebrick")
+           ("review" . "Teal")
+           ("done" . "ForestGreen")
+           ("archived" .  "SlateBlue")))
+
+      (use-package org-roam-server
+      :ensure t
+      :config
+      (setq org-roam-server-host "127.0.0.1"
+            org-roam-server-port 8080
+            org-roam-server-export-inline-images t
+            org-roam-server-authenticate nil
+            org-roam-server-network-poll t
+            org-roam-server-network-arrows nil
+            org-roam-server-network-label-truncate t
+            org-roam-server-network-label-truncate-length 60
+            org-roam-server-network-label-wrap-length 20)
+      )
+
+  (setq org-capture-templates
+        '(
+          ("t" "Todo" entry (file+headline "~/Dropbox/zettelkasten/gtd.org" "Tasks")
+           "* TODO %?\n  %i\n  %a")
+          ("j" "Journal" entry (file+datetree "~/Dropbox/zettelkasten/journal.org")
+           "* %?\nEntered on %U\n  %i\n  %a")
+
+           ;; HEALTH LOG     (h) health template
+          ("h" "Health" entry (file+datetree "~/Dropbox/zettelkasten/health.org")
+           "* HEALTH %?
+            :PROPERTIES:
+            :Who:   [[%^{Who|Brent|Lisa|Alex|Johanna|Ezra}][%\\1]]
+            :Sickness_level:
+            :Symptoms:
+            :Stayed_home:
+            :Notes:
+            :END:" :empty-lines 1)
+
+          ;; CODE updates log (u)
+          ("u" "Code Update" entry (file "~/Dropbox/zettelkasten/code_updates.org")
+           "** %?
+            :PROPERTIES:
+            :date:
+            :git_commit:
+            :git_branch:
+            :summary:
+            :END:" :empty-lines 1)
+
+          ;; conferences and workshops (c)
+          ("c" "Conference" entry (file "~/Dropbox/zettelkasten/conferences.org")
+           "* Conference %?
+            :PROPERTIES:
+            :Institution:
+            :Location:
+            :Online:
+            :Full_name:
+            :Dates:
+            :Note:
+            :Attended:
+            :My_Presentation:
+            :END:" :empty-lines 1)
+
+          ;; work projects
+          ("w" "Work Project" entry (file "~/Dropbox/zettelkasten/20210313215322-work_projects.org")
+           "* %?
+            :PROPERTIES:
+            :Description:
+            :Dates:
+            :Date_reviewed: 
+            :Pomodoros:
+            :END:" :empty-lines 1)
+
+          ;; meal plan entry 
+          ("m" "Meal Idea" entry (file "~/Dropbox/zettelkasten/20210327094051-meal_plan.org")
+           "* IDEA %?
+            :PROPERTIES:
+            :recipe:
+            :rating:
+            :notes:
+            :END:" :empty-lines 1)
+
+
+        )
+     )
+)
 
 ;; Do not write anything past this comment. This is where Emacs will
 ;; auto-generate custom variable definitions.
+(defun dotspacemacs/emacs-custom-settings ()
+  "Emacs custom settings.
+This is an auto-generated function, do not modify its content directly, use
+Emacs customize menu instead.
+This function is called at the very end of Spacemacs initialization."
+(custom-set-variables
+ ;; custom-set-variables was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(evil-want-Y-yank-to-eol nil)
+ '(org-agenda-custom-commands
+   '(("n" "Agenda and all TODOs"
+      ((agenda "" nil)
+       (alltodo "" nil))
+      nil)
+     ("i" "Important: Urgent things " tags "URGENT" nil)))
+ '(org-agenda-files
+   '("~/Dropbox/zettelkasten/20210330100811-lpi_filters_project.org" "~/Dropbox/zettelkasten/20210304114558-single_time_experiments_overview.org" "~/Dropbox/zettelkasten/20210327210358-winter_outfit_project.org" "~/Dropbox/zettelkasten/20210327105014-solbein_cardigan.org" "~/Dropbox/zettelkasten/20210327094051-meal_plan.org" "~/Dropbox/zettelkasten/20210326140509-k3d_features_da_project.org" "~/Dropbox/zettelkasten/20210326134735-adapting_k3d_features_height_to_the_height_in_the_obs.org" "~/Dropbox/zettelkasten/20210319222315-making_projects.org" "~/Dropbox/zettelkasten/reference_notes.org" "~/Dropbox/zettelkasten/20210311183443-ecrad_radiation_scheme.org" "~/Dropbox/zettelkasten/20210314212718-learning_projects.org" "~/Dropbox/zettelkasten/20210314183523-tkb_projects.org" "~/Dropbox/zettelkasten/20210313215322-work_projects.org"))
+ '(package-selected-packages
+   '(csv-mode org-pdftools org-noter-pdftools org-noter org-ref key-chord ivy tablist helm-bibtex bibtex-completion biblio parsebib biblio-core ws-butler writeroom-mode winum which-key volatile-highlights vi-tilde-fringe uuidgen use-package undo-tree treemacs-projectile treemacs-persp treemacs-icons-dired treemacs-evil toc-org symon symbol-overlay string-inflection spaceline-all-the-icons restart-emacs request rainbow-delimiters popwin pcre2el password-generator paradox overseer org-superstar org-roam org-rich-yank org-projectile org-present org-pomodoro org-mime org-download org-cliplink org-brain open-junk-file nameless multi-line move-text macrostep lorem-ipsum link-hint indent-guide hybrid-mode hungry-delete htmlize hl-todo highlight-parentheses highlight-numbers highlight-indentation helm-xref helm-themes helm-swoop helm-purpose helm-projectile helm-org-rifle helm-org helm-mode-manager helm-make helm-ls-git helm-flx helm-descbinds helm-ag google-translate golden-ratio gnuplot font-lock+ flycheck-package flycheck-elsa flx-ido fancy-battery eyebrowse expand-region evil-visualstar evil-visual-mark-mode evil-unimpaired evil-tutor evil-textobj-line evil-surround evil-org evil-numbers evil-nerd-commenter evil-mc evil-matchit evil-lisp-state evil-lion evil-indent-plus evil-iedit-state evil-goggles evil-exchange evil-escape evil-ediff evil-easymotion evil-collection evil-cleverparens evil-args evil-anzu eval-sexp-fu emr elisp-slime-nav editorconfig dumb-jump dracula-theme dotenv-mode dired-quick-sort diminish devdocs define-word column-enforce-mode clean-aindent-mode centered-cursor-mode auto-highlight-symbol auto-compile aggressive-indent ace-link ace-jump-helm-line)))
+(custom-set-faces
+ ;; custom-set-faces was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ )
+)
